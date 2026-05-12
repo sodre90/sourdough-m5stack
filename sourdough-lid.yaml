@@ -1,0 +1,74 @@
+esphome:
+  name: sourdough-lid
+  friendly_name: Sourdough Lid
+
+esp32:
+  board: esp32dev
+
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+
+api:
+logger:
+ota:
+  platform: esphome
+
+i2c:
+  sda: GPIO21
+  scl: GPIO22
+  scan: true
+
+sensor:
+  # ENV III — SHT30: temperature + humidity
+  - platform: sht3xd
+    address: 0x44
+    update_interval: 60s
+    temperature:
+      name: "Sourdough Temperature"
+      id: sourdough_temp
+    humidity:
+      name: "Sourdough Humidity"
+      id: sourdough_hum
+
+  # ENV III — QMP6988: barometric pressure
+  - platform: qmp6988
+    address: 0x70
+    update_interval: 60s
+    pressure:
+      name: "Sourdough Pressure"
+      id: sourdough_pressure
+
+  # VL53L0X: rise distance
+  - platform: vl53l0x
+    name: "Sourdough Rise Distance"
+    id: sourdough_distance
+    update_interval: 60s
+
+# M5Stack Core Ink — 1.54" e-ink display (GDEW0154M09)
+# SPI pins are internal to the Core Ink module
+spi:
+  clk_pin: GPIO18
+  mosi_pin: GPIO23
+
+display:
+  - platform: waveshare_epaper
+    cs_pin: GPIO9
+    dc_pin: GPIO15
+    busy_pin: GPIO4
+    reset_pin: GPIO16
+    model: 1.54inv2
+    update_interval: 60s
+    lambda: |-
+      it.print(0, 0, id(font_small), "Sourdough Status");
+      it.printf(0, 24, id(font_large), "%.1f C  %.0f%%", id(sourdough_temp).state, id(sourdough_hum).state);
+      it.printf(0, 54, id(font_large), "Rise: %.0f mm", id(sourdough_distance).state);
+      it.printf(0, 84, id(font_small), "%.1f hPa", id(sourdough_pressure).state);
+
+font:
+  - file: "gfonts://Roboto"
+    id: font_small
+    size: 12
+  - file: "gfonts://Roboto"
+    id: font_large
+    size: 22
