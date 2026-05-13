@@ -144,6 +144,10 @@ module sourdough_lid() {
                   (core_cy - cpW/2) - (hub_cy + hpW/2) + 0.2,
                   cable_ch_d + wall_t]);
 
+        // ══════════ TOP: HUB CABLE ENTRY (through-base) ══════════
+        translate([-cable_ch_w/2, hub_cy + hpW/2 - grove_cl, -0.1])
+            cube([cable_ch_w, grove_cl, base_t + wall_t + 0.2]);
+
         // ══════════ BOTTOM: ToF POCKET ══════════
         translate([tof_cx - tpL/2, tof_cy - tpW/2, -0.1])
             cube([tpL, tpW, sensor_depth + 0.1]);
