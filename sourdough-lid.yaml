@@ -144,6 +144,9 @@ sensor:
     attenuation: 12db
     filters:
       - multiply: 2.0
+    on_value:
+      then:
+        - component.update: battery_pct
 
   - platform: template
     name: "Battery Percent"
@@ -154,8 +157,7 @@ sensor:
     update_interval: 60s
     lambda: |-
       float v = id(battery_voltage).state;
-      if (isnan(v) || v < 0.1f) return {};
-
+      if (isnan(v) || v < 0.1f) return NAN;
       float pct = (v - 3.0f) / (4.2f - 3.0f) * 100.0f;
       if (pct > 100.0f) pct = 100.0f;
       if (pct < 0.0f) pct = 0.0f;
@@ -227,6 +229,7 @@ binary_sensor:
               - component.update: qmp6988_sensor
               - component.update: sourdough_distance
               - component.update: battery_voltage
+              - component.update: battery_pct
         - component.update: eink
 
   - platform: gpio
@@ -277,7 +280,7 @@ display:
     lambda: |-
       int page = id(current_page);
 
-      // Battery percentage + page indicator dots
+      // Battery percentage + page dots
       if (!isnan(id(battery_pct).state)) {
         it.printf(136, 0, id(font_small), "%.0f%%", id(battery_pct).state);
       }
