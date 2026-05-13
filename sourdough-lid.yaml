@@ -3,7 +3,9 @@ esphome:
   friendly_name: Sourdough Lid
 
 esp32:
-  board: esp32dev
+  board: m5stack-coreink
+  framework:
+    type: arduino
 
 wifi:
   ssid: !secret wifi_ssid
@@ -32,6 +34,10 @@ globals:
     type: bool
     restore_value: yes
     initial_value: 'false'
+  - id: current_page
+    type: int
+    restore_value: no
+    initial_value: '0'
 
 # ─── Configuration ───────────────────────────────────────────
 number:
@@ -50,8 +56,8 @@ number:
 
 # ─── Bus ─────────────────────────────────────────────────────
 i2c:
-  sda: GPIO21
-  scl: GPIO22
+  sda: GPIO32
+  scl: GPIO33
   scan: true
 
 # ─── Sensors ─────────────────────────────────────────────────
@@ -145,7 +151,51 @@ binary_sensor:
     id: sourdough_peaked
     icon: "mdi:flag-checkered"
 
-# ─── Feed button (resets baseline) ───────────────────────────
+  # ─── Physical buttons ────────────────────────────────────────
+  - platform: gpio
+    id: btn_up
+    pin:
+      number: GPIO37
+      inverted: true
+    on_press:
+      then:
+        - lambda: |-
+            id(current_page) = (id(current_page) + 2) % 3;
+        - component.update: eink
+
+  - platform: gpio
+    id: btn_center
+    pin:
+      number: GPIO38
+      inverted: true
+    on_press:
+      then:
+        - lambda: |-
+            if (id(current_page) == 2) {
+              // Feed action
+              id(baseline_distance) = id(sourdough_distance).state;
+              id(min_distance) = id(sourdough_distance).state;
+              id(prev_distance) = -1;
+              id(peak_notified) = false;
+              id(sourdough_peaked).publish_state(false);
+              id(sourdough_rise_pct).publish_state(0);
+              id(sourdough_rise_rate).publish_state(0);
+              ESP_LOGI("menu", "Baseline reset — sourdough fed");
+            }
+        - component.update: eink
+
+  - platform: gpio
+    id: btn_down
+    pin:
+      number: GPIO39
+      inverted: true
+    on_press:
+      then:
+        - lambda: |-
+            id(current_page) = (id(current_page) + 1) % 3;
+        - component.update: eink
+
+# ─── Feed button (HA) ────────────────────────────────────────
 button:
   - platform: template
     name: "Feed Sourdough"
@@ -169,42 +219,99 @@ spi:
 
 display:
   - platform: waveshare_epaper
+    id: eink
     cs_pin: GPIO9
     dc_pin: GPIO15
-    busy_pin: GPIO4
-    reset_pin: GPIO16
+    busy_pin:
+      number: GPIO4
+      inverted: false
+    reset_pin: GPIO0
     model: 1.54inv2
+    full_update_every: 1
     update_interval: 60s
     lambda: |-
-      it.print(0, 0, id(font_small), "Sourdough Starter");
+      int page = id(current_page);
 
-      it.printf(0, 20, id(font_large), "%.1f°C  %.0f%%",
-                id(sourdough_temp).state, id(sourdough_hum).state);
-
-      if (id(baseline_distance) > 0) {
-        it.printf(0, 50, id(font_large), "Rise: %.0f%%",
-                  id(sourdough_rise_pct).state);
-
-        if (id(sourdough_peaked).state) {
-          it.print(0, 80, id(font_large), "PEAKED!");
-        } else if (id(sourdough_rise_rate).state > 0.1) {
-          it.printf(0, 80, id(font_small), "Rising %.1f mm/min",
-                    id(sourdough_rise_rate).state);
+      // Page indicator dots at top-right
+      for (int i = 0; i < 3; i++) {
+        if (i == page) {
+          it.filled_circle(176 + i * 10, 6, 3);
         } else {
-          it.print(0, 80, id(font_small), "Waiting...");
+          it.circle(176 + i * 10, 6, 3);
         }
-      } else {
-        it.print(0, 50, id(font_small), "Press Feed to start");
-        it.print(0, 70, id(font_small), "tracking");
       }
 
-      it.printf(0, 110, id(font_small), "%.1f hPa",
-                id(sourdough_pressure).state);
+      if (page == 0) {
+        // ── STATUS ──
+        if (!isnan(id(sourdough_temp).state)) {
+          it.printf(0, 0, id(font_large), "%.1f°C", id(sourdough_temp).state);
+          it.printf(0, 38, id(font_large), "%.0f%% RH", id(sourdough_hum).state);
+        } else {
+          it.print(0, 0, id(font_small), "Sensors starting...");
+        }
+
+        if (id(baseline_distance) > 0) {
+          it.printf(0, 86, id(font_xlarge), "%.0f%%", id(sourdough_rise_pct).state);
+
+          if (id(sourdough_peaked).state) {
+            it.print(0, 148, id(font_large), "PEAKED!");
+          } else if (id(sourdough_rise_rate).state > 0.1) {
+            it.printf(0, 156, id(font_small), "Rising %.1f mm/min",
+                      id(sourdough_rise_rate).state);
+          } else {
+            it.print(0, 156, id(font_small), "Waiting...");
+          }
+        } else {
+          it.print(0, 100, id(font_small), "Press Feed to start");
+        }
+
+      } else if (page == 1) {
+        // ── DETAILS ──
+        it.print(0, 0, id(font_small), "DETAILS");
+        it.line(0, 22, 200, 22);
+
+        if (!isnan(id(sourdough_distance).state)) {
+          it.printf(0, 32, id(font_large), "%.0f mm", id(sourdough_distance).state);
+          it.print(0, 66, id(font_small), "Distance to dough");
+        }
+
+        if (!isnan(id(sourdough_pressure).state)) {
+          it.printf(0, 100, id(font_large), "%.1f", id(sourdough_pressure).state);
+          it.print(0, 134, id(font_small), "hPa");
+        }
+
+        if (id(baseline_distance) > 0 && !isnan(id(sourdough_rise_rate).state)) {
+          it.printf(0, 164, id(font_small), "Rate: %.1f mm/min",
+                    id(sourdough_rise_rate).state);
+        }
+
+      } else {
+        // ── FEED ──
+        it.print(0, 0, id(font_small), "FEED");
+        it.line(0, 22, 200, 22);
+
+        if (id(baseline_distance) > 0) {
+          it.print(0, 40, id(font_small), "Tracking active");
+          it.printf(0, 64, id(font_small), "Base: %.0f mm",
+                    id(baseline_distance));
+          it.printf(0, 88, id(font_small), "Peak: %.0f mm",
+                    id(min_distance));
+        } else {
+          it.print(0, 50, id(font_small), "Not tracking");
+        }
+
+        it.filled_rectangle(20, 120, 160, 40);
+        it.print(36, 124, id(font_large), COLOR_OFF, "FEED");
+        it.print(20, 170, id(font_small), "Press dial to feed");
+      }
 
 font:
   - file: "gfonts://Roboto"
     id: font_small
-    size: 12
+    size: 18
   - file: "gfonts://Roboto"
     id: font_large
-    size: 22
+    size: 32
+  - file: "gfonts://Roboto"
+    id: font_xlarge
+    size: 52

@@ -40,7 +40,7 @@ Core Ink Grove port
 | Core Ink Grove -> HUB -> ENV III (QMP6988) | 0x70 |
 | Core Ink Grove -> HUB -> VL53L0X | 0x29 |
 
-Grove uses GPIO21 (SDA) / GPIO22 (SCL) on the Core Ink.
+Grove uses GPIO32 (SDA) / GPIO33 (SCL) on the Core Ink.
 
 ## 3D Printed Enclosure
 

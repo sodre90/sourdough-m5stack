@@ -1,4 +1,6 @@
 .idea/
 .claude/
+.esphome/
+.DS_Store
 *.stl
 secrets.yaml

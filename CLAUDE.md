@@ -10,7 +10,7 @@ Smart sourdough starter monitoring lid for a Weck 580ml (742) glass jar. An M5St
 
 - **Controller**: M5Stack Core Ink (ESP32, 1.54" e-ink, 390mAh battery)
 - **Sensors**: ENV III (SHT30 temp/hum + QMP6988 pressure), VL53L0X ToF (rise distance)
-- **Wiring**: All I2C via Grove through a 1-to-3 HUB; SDA=GPIO21, SCL=GPIO22
+- **Wiring**: All I2C via Grove through a 1-to-3 HUB; SDA=GPIO32, SCL=GPIO33
 
 ## Architecture
 
