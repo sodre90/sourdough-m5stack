@@ -89,7 +89,7 @@ The lid tracks sourdough starter activity over time and detects when the starter
 
 1. **Press "Feed Sourdough"** after feeding your starter — either via the Home Assistant dashboard button, or by navigating to page 3 on the e-ink display and pressing the center button. This captures the baseline distance to the dough surface
 2. The VL53L0X ToF sensor measures distance to the dough every 60 seconds
-3. **Rise %** is calculated from how much the dough has risen relative to its initial height
+3. **Rise %** is calculated as `(baseline − current_distance) / initial_dough_height × 100`, where `initial_dough_height = jar_depth − baseline_distance` — so it knows the starting dough thickness and measures how much it expanded
 4. **Rise rate** (mm/min, smoothed over 5 readings) shows how fast the starter is growing
 5. **Peak detection** fires when the starter begins falling back after rising at least 10mm — this is when it was strongest
 
