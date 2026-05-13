@@ -81,6 +81,54 @@ openscad -o lid/sourdough-lid.stl lid/sourdough-lid.scad
 5. Plug both sensor cables into the **1-to-3 HUB**, plug the HUB into the **Core Ink** Grove port
 6. Drop the **Core Ink** (display up) and **HUB** into the top pockets (retaining lips keep Core Ink in place)
 
+## Rise Tracking & Peak Detection
+
+The lid tracks sourdough starter activity over time and detects when the starter is at peak strength — the optimal moment to use it.
+
+### How it works
+
+1. **Press "Feed Sourdough"** in Home Assistant (or on the HA dashboard) after feeding your starter — this captures the baseline distance to the dough surface
+2. The VL53L0X ToF sensor measures distance to the dough every 60 seconds
+3. **Rise %** is calculated from how much the dough has risen relative to its initial height
+4. **Rise rate** (mm/min, smoothed over 5 readings) shows how fast the starter is growing
+5. **Peak detection** fires when the starter begins falling back after rising at least 10mm — this is when it was strongest
+
+### Entities in Home Assistant
+
+| Entity | Type | Description |
+|---|---|---|
+| Sourdough Temperature | sensor | °C from SHT30 |
+| Sourdough Humidity | sensor | %RH from SHT30 |
+| Sourdough Pressure | sensor | hPa from QMP6988 |
+| Sourdough Distance | sensor | mm from VL53L0X to dough surface |
+| Sourdough Rise | sensor | Rise % since last feed |
+| Sourdough Rise Rate | sensor | mm/min, 5-reading moving average |
+| Sourdough Peaked | binary_sensor | Turns on when starter passes peak |
+| Feed Sourdough | button | Resets baseline for a new feeding cycle |
+| Jar Depth | number | mm from sensor to jar bottom (measure and set once) |
+
+### Home Assistant automation example
+
+```yaml
+automation:
+  - alias: "Sourdough peaked notification"
+    trigger:
+      - platform: state
+        entity_id: binary_sensor.sourdough_peaked
+        to: "on"
+    action:
+      - service: notify.mobile_app_your_phone
+        data:
+          title: "Sourdough Ready!"
+          message: "Your starter has peaked at {{ states('sensor.sourdough_rise') }}% rise."
+```
+
+### Setup
+
+1. Flash the firmware (see below)
+2. In Home Assistant, set **Jar Depth** to the distance in mm from the ToF sensor face to the bottom of your jar (measure with a ruler)
+3. After feeding your starter, press **Feed Sourdough** to begin tracking
+
 ## ESPHome Configuration
 
 See [`sourdough-lid.yaml`](sourdough-lid.yaml) for the full configuration.

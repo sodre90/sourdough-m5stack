@@ -14,11 +14,47 @@ logger:
 ota:
   platform: esphome
 
+# ─── State tracking ──────────────────────────────────────────
+globals:
+  - id: baseline_distance
+    type: float
+    restore_value: yes
+    initial_value: '0'
+  - id: prev_distance
+    type: float
+    restore_value: no
+    initial_value: '-1'
+  - id: min_distance
+    type: float
+    restore_value: yes
+    initial_value: '9999'
+  - id: peak_notified
+    type: bool
+    restore_value: yes
+    initial_value: 'false'
+
+# ─── Configuration ───────────────────────────────────────────
+number:
+  - platform: template
+    name: "Jar Depth"
+    id: jar_depth
+    unit_of_measurement: "mm"
+    min_value: 50
+    max_value: 200
+    step: 1
+    initial_value: 110
+    restore_value: true
+    optimistic: true
+    entity_category: config
+    icon: "mdi:cup-outline"
+
+# ─── Bus ─────────────────────────────────────────────────────
 i2c:
   sda: GPIO21
   scl: GPIO22
   scan: true
 
+# ─── Sensors ─────────────────────────────────────────────────
 sensor:
   # ENV III — SHT30: temperature + humidity
   - platform: sht3xd
@@ -39,14 +75,94 @@ sensor:
       name: "Sourdough Pressure"
       id: sourdough_pressure
 
-  # VL53L0X: rise distance
+  # VL53L0X: distance to dough surface (mm)
   - platform: vl53l0x
-    name: "Sourdough Rise Distance"
+    name: "Sourdough Distance"
     id: sourdough_distance
     update_interval: 60s
+    unit_of_measurement: "mm"
+    filters:
+      - multiply: 1000
+    on_value:
+      then:
+        - lambda: |-
+            float dist = x;
+            float baseline = id(baseline_distance);
 
-# M5Stack Core Ink — 1.54" e-ink display (GDEW0154M09)
-# SPI pins are internal to the Core Ink module
+            // Rise rate: positive = dough rising (distance shrinking)
+            if (id(prev_distance) > 0) {
+              id(sourdough_rise_rate).publish_state(id(prev_distance) - dist);
+            }
+
+            if (baseline > 0) {
+              float rise_mm = baseline - dist;
+
+              // Rise percentage relative to initial dough height
+              float initial_height = id(jar_depth).state - baseline;
+              if (initial_height > 0) {
+                id(sourdough_rise_pct).publish_state((rise_mm / initial_height) * 100.0f);
+              }
+
+              // Track closest approach (maximum rise)
+              if (dist < id(min_distance)) {
+                id(min_distance) = dist;
+              }
+
+              // Peak: starter falling back after rising at least 10mm,
+              // current distance 5mm above the peak (hysteresis against noise)
+              if (!id(peak_notified) && rise_mm > 10.0f && dist > id(min_distance) + 5.0f) {
+                id(peak_notified) = true;
+                id(sourdough_peaked).publish_state(true);
+              }
+            }
+
+            id(prev_distance) = dist;
+
+  # Derived: rise percentage since feeding
+  - platform: template
+    name: "Sourdough Rise"
+    id: sourdough_rise_pct
+    unit_of_measurement: "%"
+    accuracy_decimals: 0
+    icon: "mdi:arrow-expand-up"
+
+  # Derived: rise rate (mm/min, smoothed over 5 readings)
+  - platform: template
+    name: "Sourdough Rise Rate"
+    id: sourdough_rise_rate
+    unit_of_measurement: "mm/min"
+    accuracy_decimals: 1
+    icon: "mdi:trending-up"
+    filters:
+      - sliding_window_moving_average:
+          window_size: 5
+          send_every: 1
+
+# ─── Peak detection ──────────────────────────────────────────
+binary_sensor:
+  - platform: template
+    name: "Sourdough Peaked"
+    id: sourdough_peaked
+    icon: "mdi:flag-checkered"
+
+# ─── Feed button (resets baseline) ───────────────────────────
+button:
+  - platform: template
+    name: "Feed Sourdough"
+    icon: "mdi:silverware-spoon"
+    on_press:
+      then:
+        - lambda: |-
+            id(baseline_distance) = id(sourdough_distance).state;
+            id(min_distance) = id(sourdough_distance).state;
+            id(prev_distance) = -1;
+            id(peak_notified) = false;
+            id(sourdough_peaked).publish_state(false);
+            id(sourdough_rise_pct).publish_state(0);
+            id(sourdough_rise_rate).publish_state(0);
+        - logger.log: "Baseline reset — sourdough fed"
+
+# ─── Display ─────────────────────────────────────────────────
 spi:
   clk_pin: GPIO18
   mosi_pin: GPIO23
@@ -60,10 +176,30 @@ display:
     model: 1.54inv2
     update_interval: 60s
     lambda: |-
-      it.print(0, 0, id(font_small), "Sourdough Status");
-      it.printf(0, 24, id(font_large), "%.1f C  %.0f%%", id(sourdough_temp).state, id(sourdough_hum).state);
-      it.printf(0, 54, id(font_large), "Rise: %.0f mm", id(sourdough_distance).state);
-      it.printf(0, 84, id(font_small), "%.1f hPa", id(sourdough_pressure).state);
+      it.print(0, 0, id(font_small), "Sourdough Starter");
+
+      it.printf(0, 20, id(font_large), "%.1f°C  %.0f%%",
+                id(sourdough_temp).state, id(sourdough_hum).state);
+
+      if (id(baseline_distance) > 0) {
+        it.printf(0, 50, id(font_large), "Rise: %.0f%%",
+                  id(sourdough_rise_pct).state);
+
+        if (id(sourdough_peaked).state) {
+          it.print(0, 80, id(font_large), "PEAKED!");
+        } else if (id(sourdough_rise_rate).state > 0.1) {
+          it.printf(0, 80, id(font_small), "Rising %.1f mm/min",
+                    id(sourdough_rise_rate).state);
+        } else {
+          it.print(0, 80, id(font_small), "Waiting...");
+        }
+      } else {
+        it.print(0, 50, id(font_small), "Press Feed to start");
+        it.print(0, 70, id(font_small), "tracking");
+      }
+
+      it.printf(0, 110, id(font_small), "%.1f hPa",
+                id(sourdough_pressure).state);
 
 font:
   - file: "gfonts://Roboto"
