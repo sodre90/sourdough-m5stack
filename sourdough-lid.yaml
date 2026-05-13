@@ -154,7 +154,8 @@ sensor:
     update_interval: 60s
     lambda: |-
       float v = id(battery_voltage).state;
-      if (isnan(v)) return 0.0f;
+      if (isnan(v) || v < 0.1f) return {};
+
       float pct = (v - 3.0f) / (4.2f - 3.0f) * 100.0f;
       if (pct > 100.0f) pct = 100.0f;
       if (pct < 0.0f) pct = 0.0f;
