@@ -64,6 +64,7 @@ i2c:
 sensor:
   # ENV III — SHT30: temperature + humidity
   - platform: sht3xd
+    id: sht30
     address: 0x44
     update_interval: 60s
     temperature:
@@ -75,6 +76,7 @@ sensor:
 
   # ENV III — QMP6988: barometric pressure
   - platform: qmp6988
+    id: qmp6988_sensor
     address: 0x70
     update_interval: 60s
     pressure:
@@ -89,6 +91,7 @@ sensor:
     unit_of_measurement: "mm"
     filters:
       - multiply: 1000
+      - lambda: 'return x > 2000 ? NAN : x;'
     on_value:
       then:
         - lambda: |-
@@ -123,6 +126,31 @@ sensor:
             }
 
             id(prev_distance) = dist;
+
+  # Battery voltage via ADC (GPIO35, voltage divider ×2)
+  - platform: adc
+    pin: GPIO35
+    name: "Battery Voltage"
+    id: battery_voltage
+    update_interval: 60s
+    attenuation: 12db
+    filters:
+      - multiply: 2.0
+
+  - platform: template
+    name: "Battery Percent"
+    id: battery_pct
+    unit_of_measurement: "%"
+    accuracy_decimals: 0
+    icon: "mdi:battery"
+    update_interval: 60s
+    lambda: |-
+      float v = id(battery_voltage).state;
+      if (isnan(v)) return 0.0f;
+      float pct = (v - 3.0f) / (4.2f - 3.0f) * 100.0f;
+      if (pct > 100.0f) pct = 100.0f;
+      if (pct < 0.0f) pct = 0.0f;
+      return pct;
 
   # Derived: rise percentage since feeding
   - platform: template
@@ -182,6 +210,14 @@ binary_sensor:
               id(sourdough_rise_rate).publish_state(0);
               ESP_LOGI("menu", "Baseline reset — sourdough fed");
             }
+        - if:
+            condition:
+              lambda: 'return id(current_page) < 2;'
+            then:
+              - component.update: sht30
+              - component.update: qmp6988_sensor
+              - component.update: sourdough_distance
+              - component.update: battery_voltage
         - component.update: eink
 
   - platform: gpio
@@ -232,7 +268,10 @@ display:
     lambda: |-
       int page = id(current_page);
 
-      // Page indicator dots at top-right
+      // Battery percentage + page indicator dots
+      if (!isnan(id(battery_pct).state)) {
+        it.printf(136, 0, id(font_small), "%.0f%%", id(battery_pct).state);
+      }
       for (int i = 0; i < 3; i++) {
         if (i == page) {
           it.filled_circle(176 + i * 10, 6, 3);
@@ -243,26 +282,29 @@ display:
 
       if (page == 0) {
         // ── STATUS ──
+        it.print(0, 0, id(font_small), "STATUS");
+        it.line(0, 22, 200, 22);
+
         if (!isnan(id(sourdough_temp).state)) {
-          it.printf(0, 0, id(font_large), "%.1f°C", id(sourdough_temp).state);
-          it.printf(0, 38, id(font_large), "%.0f%% RH", id(sourdough_hum).state);
+          it.printf(0, 30, id(font_large), "%.1f°C", id(sourdough_temp).state);
+          it.printf(0, 66, id(font_large), "%.0f%% RH", id(sourdough_hum).state);
         } else {
-          it.print(0, 0, id(font_small), "Sensors starting...");
+          it.print(0, 30, id(font_small), "Sensors starting...");
         }
 
         if (id(baseline_distance) > 0) {
-          it.printf(0, 86, id(font_xlarge), "%.0f%%", id(sourdough_rise_pct).state);
+          it.printf(0, 108, id(font_xlarge), "%.0f%%", id(sourdough_rise_pct).state);
 
           if (id(sourdough_peaked).state) {
-            it.print(0, 148, id(font_large), "PEAKED!");
+            it.print(0, 164, id(font_large), "PEAKED!");
           } else if (id(sourdough_rise_rate).state > 0.1) {
-            it.printf(0, 156, id(font_small), "Rising %.1f mm/min",
+            it.printf(0, 170, id(font_small), "Rising %.1f mm/min",
                       id(sourdough_rise_rate).state);
           } else {
-            it.print(0, 156, id(font_small), "Waiting...");
+            it.print(0, 170, id(font_small), "Waiting...");
           }
         } else {
-          it.print(0, 100, id(font_small), "Press Feed to start");
+          it.print(0, 110, id(font_small), "Press Feed to start");
         }
 
       } else if (page == 1) {
