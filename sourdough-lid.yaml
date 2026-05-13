@@ -1,11 +1,19 @@
 esphome:
   name: sourdough-lid
   friendly_name: Sourdough Lid
+  on_boot:
+    then:
+      - output.turn_on: power_hold
 
 esp32:
   board: m5stack-coreink
   framework:
     type: arduino
+
+output:
+  - platform: gpio
+    id: power_hold
+    pin: GPIO12
 
 wifi:
   ssid: !secret wifi_ssid
