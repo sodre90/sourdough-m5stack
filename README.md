@@ -50,9 +50,9 @@ The lid is a single monolithic piece — a parametric OpenSCAD model in `lid/sou
 |---|---|---|
 | ![Top view](lid/assembled-top.png) | ![Bottom view](lid/assembled-bottom.png) | ![Side view](lid/assembled-side.png) |
 
-- **Top side**: Open pockets for M5Stack Core Ink (display up) and 1-to-3 HUB, with a cable channel between them
-- **Bottom side**: Flat 100mm disc that replaces the glass Weck lid. VL53L0X and ENV III sensors are recessed flush into the bottom surface with snap tabs to hold them in place
-- **Cable routing**: Vertical channels through the base plate connect the bottom sensor pockets to the top HUB pocket
+- **Top side**: Separate pockets for M5Stack Core Ink (display up) and 1-to-3 HUB, connected by a cable channel with Grove connector clearance
+- **Bottom side**: Flat 100mm disc that replaces the glass Weck lid. VL53L0X and ENV III sensors are recessed flush into the bottom surface with snap tabs (leaving the Grove port side clear for cables)
+- **Cable routing**: Through-base cable channels with Grove connector clearance connect the bottom sensor pockets to the top side
 - **Rim**: 3mm clip ledge around the disc edge for the Weck metal clips
 
 ### Print settings
@@ -100,10 +100,12 @@ The lid tracks sourdough starter activity over time and detects when the starter
 | Sourdough Temperature | sensor | °C from SHT30 |
 | Sourdough Humidity | sensor | %RH from SHT30 |
 | Sourdough Pressure | sensor | hPa from QMP6988 |
-| Sourdough Distance | sensor | mm from VL53L0X to dough surface |
+| Sourdough Distance | sensor | mm from VL53L0X to dough surface (readings >2000mm filtered as invalid) |
 | Sourdough Rise | sensor | Rise % since last feed |
 | Sourdough Rise Rate | sensor | mm/min, 5-reading moving average |
 | Sourdough Peaked | binary_sensor | Turns on when starter passes peak |
+| Battery Voltage | sensor | V from ADC on GPIO35 (×2 voltage divider) |
+| Battery Percent | sensor | Estimated % (3.0–4.2V range) |
 | Feed Sourdough | button | Resets baseline for a new feeding cycle |
 | Jar Depth | number | mm from sensor to jar bottom (measure and set once) |
 
@@ -136,7 +138,8 @@ See [`sourdough-lid.yaml`](sourdough-lid.yaml) for the full configuration.
 ### Sensor notes
 
 - **ENV III** contains two chips: `sht3xd` (temp + humidity) and `qmp6988` (pressure) — each needs its own sensor block.
-- **Display** uses `waveshare_epaper` platform with model `1.54inv2`. SPI is on Core Ink's internal pins (CLK=GPIO18, MOSI=GPIO23); CS=GPIO9, DC=GPIO15, BUSY=GPIO4, RST=GPIO16.
+- **Display** uses `waveshare_epaper` platform with model `1.54inv2`. SPI is on Core Ink's internal pins (CLK=GPIO18, MOSI=GPIO23); CS=GPIO9, DC=GPIO15, BUSY=GPIO4, RST=GPIO16. Battery percentage is shown in the header; pressing the top button forces a sensor refresh.
+- **Battery** is read via ADC on GPIO35 through a ×2 voltage divider. The percentage is a linear map from 3.0V (empty) to 4.2V (full).
 
 ### Flashing
 
