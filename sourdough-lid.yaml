@@ -280,9 +280,10 @@ display:
     lambda: |-
       int page = id(current_page);
 
-      // Battery percentage + page dots
-      if (!isnan(id(battery_pct).state)) {
-        it.printf(136, 0, id(font_small), "%.0f%%", id(battery_pct).state);
+      // Battery voltage + percentage + page dots
+      if (!isnan(id(battery_voltage).state) && !isnan(id(battery_pct).state)) {
+        it.printf(88, 0, id(font_small), "%.1fV %.0f%%",
+                  id(battery_voltage).state, id(battery_pct).state);
       }
       for (int i = 0; i < 3; i++) {
         if (i == page) {
