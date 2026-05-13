@@ -1,25 +1,25 @@
 // Smart Sourdough Lid for Weck 580ml (742) Jar
-// Single monolithic piece — no screws, no protruding parts
-// Sensors recessed flush into the flat bottom surface
+// Separate pockets for Core Ink + HUB with Grove cable clearance
+// Sensors recessed into bottom face with through-base cable channels
 //
 // Print: PETG, 0.2mm layers, 20% infill
-// Orient: print UPSIDE DOWN (flat bottom = print bed)
+// Orient: skirt on bed, housing walls print upward
 
 // ─── JAR PARAMETERS ────────────────────────────────────────
 lid_od        = 100;   // Weck glass lid outer diameter
 jar_id        = 90;    // jar mouth inner diameter
 clip_ledge    = 3;     // radial width the metal clips grip
 lid_rim_h     = 4;     // rim height for Weck clips
-centering_h   = 3;     // skirt depth below base (fits inside jar, seats on gasket)
+centering_h   = 3;     // skirt depth below base
 
 // ─── M5STACK CORE INK ──────────────────────────────────────
 core_l  = 56;          // X
-core_w  = 40;          // Y
-core_h  = 16;          // Z (display up)
+core_w  = 40;          // Y (Grove port on -Y short edge)
+core_h  = 16;          // Z
 
 // ─── M5STACK UNITS ─────────────────────────────────────────
-unit_l  = 32;
-unit_w  = 24;
+unit_l  = 32;          // X
+unit_w  = 24;          // Y (Grove ports on short/Y edges)
 tof_h   = 8;
 env_h   = 8;
 hub_h   = 11;
@@ -27,45 +27,46 @@ hub_h   = 11;
 // ─── DESIGN PARAMETERS ────────────────────────────────────
 wall_t      = 2;       // wall thickness
 cl          = 0.4;     // clearance per side
-tof_bore    = 10;      // ToF beam window diameter
-cable_ch_w  = 8;       // cable channel width
-cable_ch_d  = 5;       // cable channel depth
+grove_cl    = 6;       // Grove connector + cable bend clearance
+cable_ch_w  = 10;      // cable channel width
+cable_ch_d  = 5;       // cable channel floor depth in cavty
 lip         = 1.2;     // retaining lip inset
 lip_h       = 1.5;     // retaining lip height
 snap_t      = 0.8;     // snap tab thickness
 $fn         = 80;
 
-
 // ─── DERIVED ───────────────────────────────────────────────
 lid_r  = lid_od / 2;
 jar_ir = jar_id / 2;
 
-// Pocket dimensions (with clearance)
 cpL = core_l + 2*cl;   cpW = core_w + 2*cl;
 hpL = unit_l + 2*cl;   hpW = unit_w + 2*cl;
 tpL = unit_l + 2*cl;   tpW = unit_w + 2*cl;
 epL = unit_l + 2*cl;   epW = unit_w + 2*cl;
 
-// Base plate thickness: enough to fully recess the sensors
 sensor_depth = max(tof_h, env_h) + cl;
 base_t = sensor_depth + wall_t;
 
-// Top-side component positions
-core_cy = (cpW/2 + wall_t) - (cpW + hpW + 3*wall_t)/2 + cpW/2;
-hub_cy  = core_cy - cpW/2 - wall_t - hpW/2;
+// ── Top-side component positions ──
+core_cy = 17;          // Core Ink center Y — Grove port faces -Y
+hub_cy  = -28;         // HUB center Y — input +Y, outputs -Y
 
-// Bottom-side sensor positions (flush in base plate)
-tof_cx = 0;     tof_cy = 10;
-env_cx = 0;     env_cy = -15;
+// ── Bottom-side sensor positions ──
+tof_cx = 0;   tof_cy = -5;    // ToF near center, Grove port faces +Y
+env_cx = 0;   env_cy = -25;   // ENV III lower, Grove port faces +Y
 
-// Top housing height above base plate
+// ── Housing geometry ──
 top_h = wall_t + core_h + lip_h + 0.5;
 
-// Housing footprint
-fp_top   = core_cy + cpW/2 + wall_t;
-fp_bot   = hub_cy  - hpW/2 - wall_t;
-fp_left  = -(cpL/2 + wall_t);
-fp_right =  (cpL/2 + wall_t);
+cav_top = core_cy + cpW/2;
+cav_bot = hub_cy  - hpW/2;
+cav_w   = cpL;
+
+fp_top   = cav_top + wall_t;
+fp_bot   = cav_bot - wall_t;
+fp_left  = -(cav_w/2 + wall_t);
+fp_right =  (cav_w/2 + wall_t);
+
 
 // ═══════════════════════════════════════════════════════════
 //  RENDER SELECTOR
@@ -74,25 +75,25 @@ fp_right =  (cpL/2 + wall_t);
 print_orientation();
 
 module print_orientation() {
-    // Right-side up: skirt on bed, walls print upward
-    // Sensor pocket roofs bridge over ~32x24mm (easy at 0.2mm layers)
-    translate([0, 0, centering_h])
+    translate([0, lid_r, centering_h])
         sourdough_lid();
 }
 
 module assembled() {
-    color("SteelBlue", 0.8) sourdough_lid();
+    translate([0, lid_r, 0]) {
+        color("SteelBlue", 0.8) sourdough_lid();
 
-    // Ghost components
-    %translate([0, core_cy, base_t + wall_t + core_h/2])
-        cube([core_l, core_w, core_h], center=true);
-    %translate([0, hub_cy, base_t + wall_t + hub_h/2])
-        cube([unit_l, unit_w, hub_h], center=true);
-    %translate([tof_cx, tof_cy, sensor_depth/2 - cl/2])
-        cube([unit_l, unit_w, tof_h], center=true);
-    %translate([env_cx, env_cy, sensor_depth/2 - cl/2])
-        cube([unit_l, unit_w, env_h], center=true);
+        %translate([0, core_cy, base_t + wall_t + core_h/2])
+            cube([core_l, core_w, core_h], center=true);
+        %translate([0, hub_cy, base_t + wall_t + hub_h/2])
+            cube([unit_l, unit_w, hub_h], center=true);
+        %translate([tof_cx, tof_cy, sensor_depth/2 - cl/2])
+            cube([unit_l, unit_w, tof_h], center=true);
+        %translate([env_cx, env_cy, sensor_depth/2 - cl/2])
+            cube([unit_l, unit_w, env_h], center=true);
+    }
 }
+
 
 // ═══════════════════════════════════════════════════════════
 //  MAIN MODEL
@@ -100,10 +101,10 @@ module assembled() {
 module sourdough_lid() {
     difference() {
         union() {
-            // ── Thick base disc (sensors recess into this) ──
+            // ── Base disc ──
             cylinder(h=base_t, r=lid_r);
 
-            // ── Rim for Weck clip grip ──
+            // ── Weck clip rim ──
             difference() {
                 cylinder(h=max(base_t, lid_rim_h), r=lid_r);
                 translate([0, 0, -0.1])
@@ -111,7 +112,7 @@ module sourdough_lid() {
                              r=lid_r - clip_ledge);
             }
 
-            // ── Centering skirt (fits inside jar mouth, seats on rubber gasket) ──
+            // ── Centering skirt ──
             translate([0, 0, -centering_h])
                 difference() {
                     cylinder(h=centering_h, r=jar_ir - 0.3);
@@ -122,68 +123,64 @@ module sourdough_lid() {
             // ── Top housing walls ──
             intersection() {
                 cylinder(h=base_t + top_h, r=lid_r);
-                translate([0, (fp_top+fp_bot)/2, (base_t + top_h)/2])
+                translate([0, (fp_top + fp_bot)/2, (base_t + top_h)/2])
                     cube([fp_right - fp_left,
                           fp_top - fp_bot,
                           base_t + top_h], center=true);
             }
         }
 
-        // ══════════ TOP POCKETS (from above) ══════════
-
-        // Core Ink pocket
+        // ══════════ TOP: CORE INK POCKET ══════════
         translate([-cpL/2, core_cy - cpW/2, base_t + wall_t])
             cube([cpL, cpW, top_h]);
 
-        // HUB pocket
+        // ══════════ TOP: HUB POCKET ══════════
         translate([-hpL/2, hub_cy - hpW/2, base_t + wall_t])
             cube([hpL, hpW, top_h]);
 
-        // Cable channel between Core Ink and HUB
+        // ══════════ TOP: CABLE CHANNEL BETWEEN POCKETS ══════════
         translate([-cable_ch_w/2, hub_cy + hpW/2 - 0.1, base_t + wall_t])
-            cube([cable_ch_w, wall_t + 0.2, cable_ch_d + wall_t]);
+            cube([cable_ch_w,
+                  (core_cy - cpW/2) - (hub_cy + hpW/2) + 0.2,
+                  cable_ch_d + wall_t]);
 
-        // ══════════ BOTTOM POCKETS (from below, flush) ══════════
-
-        // ToF sensor pocket
+        // ══════════ BOTTOM: ToF POCKET ══════════
         translate([tof_cx - tpL/2, tof_cy - tpW/2, -0.1])
             cube([tpL, tpW, sensor_depth + 0.1]);
 
-        // ToF beam hole through remaining wall into jar
-        // (not needed — sensor face is flush with bottom)
-        // But we need the bore through the wall_t above the sensor
-        // so it can see through to the top cable area
-        // Actually: ToF looks DOWN, and it IS at the bottom. No extra hole needed.
+        // ToF Grove clearance (+Y) and through-base cable channel
+        translate([tof_cx - cable_ch_w/2, tof_cy + tpW/2 - 1, -0.1])
+            cube([cable_ch_w, grove_cl + 1,
+                  base_t + wall_t + cable_ch_d + 0.2]);
 
-        // ENV III sensor pocket
+        // ══════════ BOTTOM: ENV III POCKET ══════════
         translate([env_cx - epL/2, env_cy - epW/2, -0.1])
             cube([epL, epW, sensor_depth + 0.1]);
 
-        // ══════════ CABLE ROUTING (bottom to top) ══════════
-
-        // Vertical cable channel from ToF pocket to top surface
-        translate([tof_cx + tpL/2 - cable_ch_w, tof_cy - cable_ch_w/2, -0.1])
-            cube([cable_ch_w, cable_ch_w, base_t + wall_t + cable_ch_d + 0.1]);
-
-        // Vertical cable channel from ENV III pocket to top surface
-        translate([env_cx + epL/2 - cable_ch_w, env_cy - cable_ch_w/2, -0.1])
-            cube([cable_ch_w, cable_ch_w, base_t + wall_t + cable_ch_d + 0.1]);
+        // ENV III Grove clearance (+Y) and through-base cable channel
+        translate([env_cx - cable_ch_w/2, env_cy + epW/2 - 1, -0.1])
+            cube([cable_ch_w, grove_cl + 1,
+                  base_t + wall_t + cable_ch_d + 0.2]);
     }
 
-    // ── Retaining lips for Core Ink ──
+    // ── Core Ink retaining lips (±Y edges) ──
     for (ym = [-1, 1])
         translate([-cpL*0.15,
                    core_cy + ym*(cpW/2 - lip/2),
                    base_t + top_h - lip_h])
             cube([cpL*0.3, lip, lip_h]);
 
-    // ── Snap tabs to hold sensors from below ──
-    // ToF
-    for (ym = [-1, 1])
-        translate([tof_cx, tof_cy + ym*(tpW/2 - snap_t/2), snap_t/2])
-            cube([tpL*0.3, snap_t, snap_t], center=true);
-    // ENV III
-    for (ym = [-1, 1])
-        translate([env_cx, env_cy + ym*(epW/2 - snap_t/2), snap_t/2])
-            cube([epL*0.3, snap_t, snap_t], center=true);
+    // ── ToF snap tabs (-Y and ±X, +Y clear for cable) ──
+    translate([tof_cx, tof_cy - (tpW/2 - snap_t/2), snap_t/2])
+        cube([tpL*0.3, snap_t, snap_t], center=true);
+    for (xm = [-1, 1])
+        translate([tof_cx + xm*(tpL/2 - snap_t/2), tof_cy, snap_t/2])
+            cube([snap_t, tpW*0.3, snap_t], center=true);
+
+    // ── ENV III snap tabs (-Y and ±X, +Y clear for cable) ──
+    translate([env_cx, env_cy - (epW/2 - snap_t/2), snap_t/2])
+        cube([epL*0.3, snap_t, snap_t], center=true);
+    for (xm = [-1, 1])
+        translate([env_cx + xm*(epL/2 - snap_t/2), env_cy, snap_t/2])
+            cube([snap_t, epW*0.3, snap_t], center=true);
 }
