@@ -135,15 +135,21 @@ sensor:
 
             id(prev_distance) = dist;
 
-  # Battery voltage via ADC (GPIO35, voltage divider ×2)
+  # Battery voltage via ADC (20k/5.1k voltage divider)
   - platform: adc
     pin: GPIO35
     name: "Battery Voltage"
     id: battery_voltage
-    update_interval: 60s
-    attenuation: 12db
+    unit_of_measurement: "V"
+    update_interval: 30s
+    attenuation: 6db
     filters:
-      - multiply: 2.0
+      - multiply: 4.92157  # Changed from 2.0
+      - median:
+          window_size: 10
+          send_every: 10
+      - lambda: |-
+          if (x < 2.8) return 2.8f; else if (x > 4.35) return 4.35f; else return x;
     on_value:
       then:
         - component.update: battery_pct
