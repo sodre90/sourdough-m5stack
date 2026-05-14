@@ -3,4 +3,5 @@
 .esphome/
 .DS_Store
 *.stl
+*.blend1
 secrets.yaml

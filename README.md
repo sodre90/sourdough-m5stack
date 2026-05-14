@@ -10,7 +10,7 @@ A 3D-printed smart lid for a Weck 580ml jar that monitors sourdough starter rise
 | Env Sensor | M5Stack ENV III Unit | SHT30 (temp/hum) + QMP6988 (pressure), Grove |
 | Distance Sensor | M5Stack VL53L0X Unit | Time-of-flight, Grove |
 | Hub | M5Stack 1-to-3 HUB Expansion Unit | Splits one Grove port into three |
-| Enclosure | 3D Printed Lid (single piece) | PETG recommended, see `lid/sourdough-lid.scad` |
+| Enclosure | 3D Printed Lid (single piece) | PETG recommended, see `lid/lid.blend` |
 
 No screws or additional hardware needed.
 
@@ -44,7 +44,7 @@ Grove uses GPIO32 (SDA) / GPIO33 (SCL) on the Core Ink.
 
 ## 3D Printed Enclosure
 
-The lid is a single monolithic piece — a parametric OpenSCAD model in `lid/sourdough-lid.scad`.
+The lid is a single monolithic piece — a Blender model in `lid/lid.blend` (exported as `lid/lid.stl`).
 
 | Top (component pockets) | Bottom (sensor recesses) | Side profile |
 |---|---|---|
@@ -62,15 +62,6 @@ The lid is a single monolithic piece — a parametric OpenSCAD model in `lid/sou
 - Infill: 20%
 - Supports: none needed
 - Orientation: right-side up (flat bottom on print bed)
-
-### Rendering
-
-Toggle between `print_orientation()` (print-ready) and `assembled()` (visualization with ghost components) in the render selector near the top of the `.scad` file. All dimensions are parametric — measure your jar with calipers and adjust `lid_od` and `jar_id`.
-
-```bash
-# Export STL for slicing
-openscad -o lid/sourdough-lid.stl lid/sourdough-lid.scad
-```
 
 ## Assembly
 
